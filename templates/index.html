@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>AI Chatbot</title>
+  <link rel="stylesheet" href="/static/style.css" />
+</head>
+<body>
+
+  <div class="chat-container">
+    <div class="chat-header">
+      <div class="status-dot"></div>
+      <h2>chat with me</h2>
+      <button id="clearBtn" title="Clear chat">🗑</button>
+    </div>
+
+    <div class="chat-box" id="chatBox">
+      <div class="message bot">
+        <div class="bubble">Hi there! 👋 How can I help you today?</div>
+      </div>
+    </div>
+
+    <div class="chat-input">
+      <input type="text" id="userInput" placeholder="Type a message..." autocomplete="off" />
+      <button id="sendBtn">Send</button>
+    </div>
+  </div>
+
+  <script>
+    const chatBox = document.getElementById("chatBox");
+    const userInput = document.getElementById("userInput");
+    const sendBtn = document.getElementById("sendBtn");
+    const clearBtn = document.getElementById("clearBtn");
+
+    function appendMessage(role, text) {
+      const div = document.createElement("div");
+      div.classList.add("message", role);
+      div.innerHTML = `<div class="bubble">${text}</div>`;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+    }
+
+    function appendTyping() {
+      const div = document.createElement("div");
+      div.classList.add("message", "bot", "typing-indicator");
+      div.innerHTML = `<div class="bubble"><span></span><span></span><span></span></div>`;
+      chatBox.appendChild(div);
+      chatBox.scrollTop = chatBox.scrollHeight;
+      return div;
+    }
+
+    async function sendMessage() {
+      const message = userInput.value.trim();
+      if (!message) return;
+
+      appendMessage("user", message);
+      userInput.value = "";
+      sendBtn.disabled = true;
+
+      const typingEl = appendTyping();
+
+      try {
+        const res = await fetch("/chat", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ message })
+        });
+        const data = await res.json();
+        typingEl.remove();
+
+        if (data.reply) {
+          appendMessage("bot", data.reply);
+        } else {
+          appendMessage("bot", "⚠️ Error: " + (data.error || "Something went wrong."));
+        }
+      } catch (err) {
+        typingEl.remove();
+        appendMessage("bot", "⚠️ Could not reach the server.");
+      }
+
+      sendBtn.disabled = false;
+      userInput.focus();
+    }
+
+    sendBtn.addEventListener("click", sendMessage);
+    userInput.addEventListener("keydown", (e) => {
+      if (e.key === "Enter") sendMessage();
+    });
+
+    clearBtn.addEventListener("click", async () => {
+      await fetch("/clear", { method: "POST" });
+      chatBox.innerHTML = `
+        <div class="message bot">
+          <div class="bubble">Chat cleared! How can I help you?</div>
+        </div>`;
+    });
+  </script>
+
+</body>
+</html>
